@@ -1,166 +1,290 @@
-// RailConnect Lite – purely front-end demo
+// PlayPicks (No-Stakes Prediction Demo) – enhanced visuals
+// This app uses LocalStorage and mock data only. No real money, no gambling.
 (function(){
   const elYear = document.getElementById('year');
   if(elYear){ elYear.textContent = new Date().getFullYear(); }
 
-  // --- Simple in-memory demo data ---
-  const stations = [
-    { code: 'TVC', name: 'Thiruvananthapuram Central' },
-    { code: 'ERS', name: 'Ernakulam Junction' },
-    { code: 'QLN', name: 'Kollam Junction' },
-    { code: 'MAS', name: 'Puratchi Thalaivar Dr. M.G. Ramachandran Central (Chennai Central)' },
-    { code: 'SBC', name: 'KSR Bengaluru' },
-    { code: 'HYB', name: 'Hyderabad Deccan' },
-    { code: 'NZM', name: 'Hazrat Nizamuddin' },
-    { code: 'NDLS', name: 'New Delhi' },
-  ];
+  // ---------- Storage helpers ----------
+  const S = {
+    read(k, def){ try{ return JSON.parse(localStorage.getItem(k)) ?? def; }catch{ return def; } },
+    write(k, v){ localStorage.setItem(k, JSON.stringify(v)); },
+  };
 
-  const trains = [
-    { no: '12626', name: 'Kerala Express', from: 'TVC', to: 'NDLS', dep: '11:15', arr: '13:45+1', classes:['2A','3A','SL'] },
-    { no: '12624', name: 'Trivandrum Mail', from: 'TVC', to: 'MAS', dep: '19:45', arr: '10:30+1', classes:['2A','3A','SL'] },
-    { no: '12678', name: 'Bengaluru Express', from: 'ERS', to: 'SBC', dep: '20:30', arr: '06:15+1', classes:['3A','SL','CC'] },
-    { no: '16346', name: 'Nethravathi Express', from: 'TVC', to: 'LTT', dep: '09:30', arr: '16:45+1', classes:['2A','3A','SL'] },
-    { no: '12618', name: 'Mangaluru Express', from: 'TVC', to: 'ERS', dep: '06:15', arr: '11:10', classes:['CC','2S'] },
-  ];
+  // ---------- User profile & balance ----------
+  const PROFILE_KEY = 'pp_profile';
+  const PICKS_KEY = 'pp_picks';
+  const EVENTS_KEY = 'pp_events';
 
-  function byId(id){ return document.getElementById(id); }
-  function fmtStation(code){
-    const s = stations.find(x=>x.code===code);
-    return s ? `${s.name} (${s.code})` : code;
-  }
-
-  // --- Train search page logic ---
-  if(byId('search-form')){
-    const form = byId('search-form');
-    const fromEl = byId('from');
-    const toEl = byId('to');
-    const dateEl = byId('journey-date');
-    const outEl = byId('results');
-
-    form.addEventListener('submit', (e)=>{
-      e.preventDefault();
-      const from = fromEl.value.trim().toUpperCase();
-      const to = toEl.value.trim().toUpperCase();
-      const date = dateEl.value;
-
-      const list = trains.filter(t=>t.from===from && t.to===to);
-      outEl.innerHTML = '';
-
-      if(!from || !to || !date){
-        outEl.innerHTML = `<div class="alert alert-warning">Please fill From, To and Date.</div>`;
-        return;
-      }
-
-      if(list.length===0){
-        outEl.innerHTML = `<div class="alert alert-info">No direct trains found for ${from} → ${to} on ${date}. Try different stations.</div>`;
-        return;
-      }
-
-      const rows = list.map(t=>{
-        const classes = t.classes.map(c=>`<span class="badge rounded-pill text-bg-light me-1">${c}</span>`).join('');
-        return `
-          <tr>
-            <td><div class="fw-semibold">${t.no}</div><div class="text-muted small">${t.name}</div></td>
-            <td><div class="fw-semibold">${t.dep}</div><div class="text-muted small">${fmtStation(t.from)}</div></td>
-            <td><div class="fw-semibold">${t.arr}</div><div class="text-muted small">${fmtStation(t.to)}</div></td>
-            <td>${classes}</td>
-            <td><button class="btn btn-sm btn-primary" data-train="${t.no}" onclick="window.mockBook('${t.no}','${date}')">Book</button></td>
-          </tr>`;
-      }).join('');
-
-      outEl.innerHTML = `
-        <div class="table-responsive">
-          <table class="table align-middle">
-            <thead><tr><th>Train</th><th>Departure</th><th>Arrival</th><th>Classes</th><th></th></tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>`;
-    });
-
-    // simple station autocomplete (by code)
-    [fromEl, toEl].forEach(inp=>{
-      inp.addEventListener('input',()=>{ inp.value = inp.value.toUpperCase().replace(/[^A-Z]/g,''); });
-      inp.setAttribute('placeholder','e.g., TVC');
-    });
-  }
-
-  // --- PNR status mock ---
-  if(byId('pnr-form')){
-    const form = byId('pnr-form');
-    const pnrEl = byId('pnr');
-    const outEl = byId('pnr-result');
-
-    form.addEventListener('submit', (e)=>{
-      e.preventDefault();
-      const p = pnrEl.value.trim();
-      if(!/^\d{10}$/.test(p)){
-        outEl.innerHTML = `<div class="alert alert-warning">Enter a valid 10-digit PNR.</div>`;return;
-      }
-      const samples = [
-        { status:'CNF', berth:'S3 / 23 Lower', chart:'Prepared' },
-        { status:'WL 12 → CNF', berth:'S2 / 18 Upper', chart:'Prepared' },
-        { status:'RAC 34', berth:'Side Lower', chart:'Not Prepared' },
-      ];
-      const s = samples[Math.floor(Math.random()*samples.length)];
-      outEl.innerHTML = `
-        <div class="card shadow-sm">
-          <div class="card-body">
-            <h5 class="card-title">PNR: ${p}</h5>
-            <p class="mb-1"><strong>Booking Status:</strong> ${s.status}</p>
-            <p class="mb-1"><strong>Coach/Berth:</strong> ${s.berth}</p>
-            <p class="mb-0"><strong>Charting:</strong> ${s.chart}</p>
-          </div>
-        </div>`;
-    });
-  }
-
-  // simple booking modal replacement
-  window.mockBook = function(trainNo, date){
-    const t = trains.find(x=>x.no===trainNo);
-    if(!t) return alert('Train not found');
-    const msg = `Booking (demo) for ${t.name} (${t.no})
-
-`+
-                `From: ${fmtStation(t.from)}
-`+
-                `To:   ${fmtStation(t.to)}
-`+
-                `Date: ${date}
-
-`+
-                `This is a front-end demo. No real booking is performed.`;
-    alert(msg);
-    try{
-      const list = JSON.parse(localStorage.getItem('rc_bookings')||'[]');
-      list.push({ ts:Date.now(), trainNo, date, from:t.from, to:t.to, name:t.name });
-      localStorage.setItem('rc_bookings', JSON.stringify(list));
-      window.location.href = '../pages/my-bookings.html';
-    }catch(e){ console.warn('LocalStorage unavailable'); }
-  }
-
-  // my bookings page
-  if(byId('booking-list')){
-    const ul = byId('booking-list');
-    const list = JSON.parse(localStorage.getItem('rc_bookings')||'[]').sort((a,b)=>b.ts-a.ts);
-    if(list.length===0){
-      ul.innerHTML = '<p class="text-muted">No demo bookings yet. Search trains and click Book.</p>';
-    } else {
-      ul.innerHTML = list.map(b=>{
-        const d = new Date(b.ts);
-        return `<div class="card mb-3"><div class="card-body d-flex justify-content-between align-items-center">
-          <div>
-            <div class="fw-semibold">${b.name} (${b.trainNo})</div>
-            <div class="text-muted small">${b.from} → ${b.to} • ${b.date} • Saved ${d.toLocaleString()}</div>
-          </div>
-          <button class="btn btn-outline-danger btn-sm" onclick="window.deleteBooking(${b.ts})">Delete</button>
-        </div></div>`;
-      }).join('');
+  function initProfile(){
+    const p = S.read(PROFILE_KEY, null);
+    if(!p){
+      const profile = { nickname: 'Player'+Math.floor(Math.random()*1000), coins: 1000 };
+      S.write(PROFILE_KEY, profile);
     }
   }
 
-  window.deleteBooking = function(ts){
-    const list = JSON.parse(localStorage.getItem('rc_bookings')||'[]').filter(x=>x.ts!==ts);
-    localStorage.setItem('rc_bookings', JSON.stringify(list));
-    location.reload();
+  function getProfile(){ initProfile(); return S.read(PROFILE_KEY, {}); }
+  function setProfile(p){ S.write(PROFILE_KEY, p); }
+
+  // ---------- Mock events with images ----------
+  function initEvents(){
+    let events = S.read(EVENTS_KEY, null);
+    if(!events){
+      const now = Date.now();
+      const hour = 3600_000;
+      events = [
+        { id:'E1001', sport:'Cricket', sportImg:'assets/img/sports/cricket.svg', a:'Tigers', aImg:'assets/img/teams/tigers.svg', b:'Falcons', bImg:'assets/img/teams/falcons.svg', start: now+2*hour, mA:1.8, mB:2.1 },
+        { id:'E1002', sport:'Football', sportImg:'assets/img/sports/football.svg', a:'Red FC', aImg:'assets/img/teams/redfc.svg', b:'Blue FC', bImg:'assets/img/teams/bluefc.svg', start: now+5*hour, mA:1.6, mB:2.4 },
+        { id:'E1003', sport:'Tennis', sportImg:'assets/img/sports/tennis.svg', a:'Player X', aImg:'assets/img/teams/playerx.svg', b:'Player Y', bImg:'assets/img/teams/playery.svg', start: now+26*hour, mA:1.9, mB:1.9 },
+        { id:'E1004', sport:'Cricket', sportImg:'assets/img/sports/cricket.svg', a:'Royals', aImg:'assets/img/teams/royals.svg', b:'Kings', bImg:'assets/img/teams/kings.svg', start: now+50*hour, mA:2.2, mB:1.7 },
+      ].map(e=>({ ...e, status:'scheduled', winner:null }));
+      S.write(EVENTS_KEY, events);
+    }
+  }
+  function getEvents(){ initEvents(); return S.read(EVENTS_KEY, []); }
+  function setEvents(evts){ S.write(EVENTS_KEY, evts); }
+
+  // ---------- Picks ----------
+  function getPicks(){ return S.read(PICKS_KEY, []); }
+  function setPicks(p){ S.write(PICKS_KEY, p); }
+
+  // ---------- Utilities ----------
+  function fmtTime(ts){ const d = new Date(ts); return d.toLocaleString(); }
+  function countdown(ts){
+    const diff = Math.max(0, ts - Date.now());
+    const h = Math.floor(diff/3600000);
+    const m = Math.floor((diff%3600000)/60000);
+    const s = Math.floor((diff%60000)/1000);
+    return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+  }
+
+  // ---------- Rendering helpers ----------
+  function q(id){ return document.getElementById(id); }
+  function showBalance(){
+    const el = document.querySelectorAll('[data-profile-balance]');
+    el.forEach(n=>{ n.textContent = getProfile().coins; });
+  }
+
+  // ---------- Events page ----------
+  if(q('events-root')){
+    renderEvents();
+    showBalance();
+    setInterval(()=>{
+      document.querySelectorAll('[data-countdown]').forEach(node=>{
+        const ts = Number(node.getAttribute('data-countdown'));
+        node.textContent = countdown(ts);
+      });
+    },1000);
+  }
+
+  function renderEvents(){
+    const root = q('events-root');
+    const events = getEvents().sort((a,b)=>a.start-b.start);
+    root.innerHTML = events.map(e=>{
+      const now = Date.now();
+      const locked = now >= e.start || e.status!=='scheduled';
+      return `
+        <div class="card card-event mb-3 shadow-sm event-bg">
+          <div class="banner"></div>
+          <div class="card-body">
+            <div class="d-flex justify-content-between flex-wrap">
+              <div class="d-flex align-items-center mb-2">
+                <img src="${e.sportImg}" width="22" class="me-2" alt="${e.sport}">
+                <div class="badge bg-secondary me-2">${e.sport}</div>
+                <div class="small text-muted">Starts: ${fmtTime(e.start)} • <span class="countdown" data-countdown="${e.start}">${countdown(e.start)}</span></div>
+              </div>
+              <div class="text-end multipliers">
+                <div class="small">Multipliers</div>
+                <div><span class="badge bg-light text-dark me-1">${e.a}: ×${e.mA}</span><span class="badge bg-light text-dark">${e.b}: ×${e.mB}</span></div>
+              </div>
+            </div>
+
+            <div class="row g-3 align-items-center mt-1">
+              <div class="col-md-5 team">
+                <img src="${e.aImg}" alt="${e.a}"><span class="name">${e.a}</span>
+                <span class="text-muted mx-2">vs</span>
+                <img src="${e.bImg}" alt="${e.b}"><span class="name">${e.b}</span>
+              </div>
+              <div class="col-sm-3">
+                <label class="form-label">Pick</label>
+                <select class="form-select" id="pick-${e.id}" ${locked?'disabled':''}>
+                  <option value="A">${e.a}</option>
+                  <option value="B">${e.b}</option>
+                </select>
+              </div>
+              <div class="col-sm-2">
+                <label class="form-label">Coins</label>
+                <input type="number" min="1" step="1" value="50" class="form-control" id="coins-${e.id}" ${locked?'disabled':''} />
+                <div class="form-text">Bal: <span class="coins" data-profile-balance></span></div>
+              </div>
+              <div class="col-sm-2 d-flex gap-2">
+                <button class="btn btn-primary flex-fill" ${locked?'disabled':''} onclick="window.placePick('${e.id}')">Pick</button>
+                <button class="btn btn-outline-secondary flex-fill" onclick="window.simulateResult('${e.id}')">Sim</button>
+              </div>
+            </div>
+
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // ---------- Actions ----------
+  window.placePick = function(eventId){
+    const events = getEvents();
+    const e = events.find(x=>x.id===eventId);
+    if(!e) return alert('Event not found');
+    if(Date.now()>=e.start || e.status!=='scheduled'){ return alert('Event locked'); }
+
+    const sel = document.getElementById('pick-'+eventId).value;
+    const coins = parseInt(document.getElementById('coins-'+eventId).value,10) || 0;
+    if(coins<=0) return alert('Enter coins > 0');
+
+    const profile = getProfile();
+    if(coins>profile.coins) return alert('Insufficient coins');
+
+    profile.coins -= coins;
+    setProfile(profile);
+
+    const picks = getPicks();
+    picks.push({ id:'P'+Date.now(), eventId, side:sel, coins, ts:Date.now(), status:'open', payout:0 });
+    setPicks(picks);
+
+    showBalance();
+    alert('Pick placed!');
+  };
+
+  window.simulateResult = function(eventId){
+    const events = getEvents();
+    const e = events.find(x=>x.id===eventId);
+    if(!e) return alert('Event not found');
+    if(e.status!=='scheduled'){ return alert('Event already settled'); }
+
+    const winner = Math.random()<0.5?'A':'B';
+    e.status = 'finished';
+    e.winner = winner;
+    setEvents(events);
+
+    const picks = getPicks();
+    const profile = getProfile();
+    picks.forEach(p=>{
+      if(p.eventId===eventId && p.status==='open'){
+        if(p.side===winner){
+          const multiplier = winner==='A'? e.mA : e.mB;
+          const win = Math.round(p.coins * multiplier);
+          p.payout = win;
+          profile.coins += win;
+        }
+        p.status = 'settled';
+      }
+    });
+    setPicks(picks);
+    setProfile(profile);
+    showBalance();
+    alert(`Result simulated. Winner: ${winner==='A'?e.a:e.b}`);
+    if(q('events-root')) renderEvents();
+    if(q('mypicks-root')) renderMyPicks();
+  };
+
+  window.cancelPick = function(pid){
+    const picks = getPicks();
+    const p = picks.find(x=>x.id===pid);
+    if(!p) return;
+
+    const events = getEvents();
+    const e = events.find(x=>x.id===p.eventId);
+    if(!e || Date.now()>=e.start || e.status!=='scheduled'){
+      return alert('Cannot cancel after start');
+    }
+
+    const profile = getProfile();
+    profile.coins += p.coins; // refund
+    setProfile(profile);
+
+    const updated = picks.filter(x=>x.id!==pid);
+    setPicks(updated);
+    showBalance();
+    renderMyPicks();
+  };
+
+  // ---------- My Picks page ----------
+  if(q('mypicks-root')){
+    renderMyPicks();
+    showBalance();
+  }
+
+  function renderMyPicks(){
+    const root = q('mypicks-root');
+    const picks = getPicks().sort((a,b)=>b.ts-a.ts);
+    const events = getEvents();
+
+    if(picks.length===0){
+      root.innerHTML = '<p class="text-muted">No picks yet. Go to Events to place one.</p>';
+      return;
+    }
+
+    root.innerHTML = picks.map(p=>{
+      const e = events.find(x=>x.id===p.eventId) || {a:'?',b:'?',aImg:'',bImg:'',start:0,status:'?'};
+      const sideName = p.side==='A'? e.a : e.b;
+      const sideImg = p.side==='A'? e.aImg : e.bImg;
+      const canCancel = Date.now()<e.start && e.status==='scheduled' && p.status==='open';
+      const statusBadge = p.status==='open'? '<span class="badge bg-info">Open</span>' : '<span class="badge bg-success">Settled</span>';
+      const payout = p.status==='settled'? `<div><strong>Payout:</strong> ${p.payout} coins</div>`:'';
+      return `
+        <div class="card mb-3 shadow-sm">
+          <div class="card-body d-flex justify-content-between align-items-center flex-wrap">
+            <div class="d-flex align-items-center">
+              <img src="${sideImg}" class="me-2" style="width:32px;height:32px;border-radius:50%" alt="pick">
+              <div>
+                <div class="fw-semibold">${e.a} vs ${e.b}</div>
+                <div class="text-muted small">Pick: ${sideName} • Stake: ${p.coins} coins</div>
+                ${payout}
+              </div>
+            </div>
+            <div class="text-end">
+              ${statusBadge}
+              <div class="mt-2">
+                ${canCancel? `<button class="btn btn-outline-danger btn-sm" onclick="window.cancelPick('${p.id}')">Cancel</button>`: ''}
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // ---------- Leaderboard page ----------
+  if(q('leaderboard-root')){
+    renderLeaderboard();
+    showBalance();
+    const nickInp = q('nickname');
+    const profile = getProfile();
+    if(nickInp){ nickInp.value = profile.nickname; }
+    const saveBtn = q('save-nick');
+    if(saveBtn){ saveBtn.addEventListener('click',()=>{
+      const p = getProfile();
+      p.nickname = (nickInp.value||'').trim()||p.nickname;
+      setProfile(p);
+      renderLeaderboard();
+    }); }
+  }
+
+  function renderLeaderboard(){
+    const root = q('leaderboard-root');
+    const profile = getProfile();
+    const sample = [
+      { nickname:'Aarav', coins: 1850 },
+      { nickname:'Diya', coins: 1420 },
+      { nickname:'Vikram', coins: 990 },
+      { nickname: profile.nickname + ' (You)', coins: profile.coins },
+    ].sort((a,b)=>b.coins-a.coins);
+
+    root.innerHTML = `
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead><tr><th>#</th><th>Player</th><th>Coins</th></tr></thead>
+          <tbody>
+            ${sample.map((r,i)=>`<tr><td>${i+1}</td><td><span class="leader-avatar"></span>${r.nickname}</td><td>${r.coins}</td></tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
   }
 })();

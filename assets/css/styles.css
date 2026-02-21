@@ -1,9 +1,23 @@
-:root{--rc-primary:#0d6efd}
+:root{--pp-primary:#0d6efd;--pp-secondary:#6610f2;--pp-bg:#f5f7fb}
 body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif}
-.hero{background:linear-gradient(180deg,#f8f9fa,#ffffff)}
+.bg-soft{background:var(--pp-bg)}
+.bg-gradient-primary{background:linear-gradient(90deg,#0d6efd,#6610f2)}
+.hero{background:linear-gradient(135deg,#0d6efd 0%,#6610f2 100%);min-height:340px}
+.hero .hero-bg{position:absolute;inset:0;opacity:.15;width:100%;height:100%;object-fit:cover}
+.drop-glow{filter:drop-shadow(0 10px 24px rgba(13,110,253,.35))}
 .card:hover{transform:translateY(-2px);transition:.2s ease}
 .navbar-brand span{letter-spacing:.2px}
-.badge-train{background:#e7f1ff;color:#0d6efd;border:1px solid #b6d4fe}
-footer{background:#fff}
+.badge-tag{background:#e7f1ff;color:#0d6efd;border:1px solid #b6d4fe}
 .table thead th{background:#f8f9fa}
 .form-help{font-size:.85rem;color:#6c757d}
+.countdown{font-variant-numeric:tabular-nums}
+.coins{font-weight:700}
+.feature-card{border:0}
+.card-event{border:0;overflow:hidden}
+.card-event .banner{height:6px;background:linear-gradient(90deg,#0d6efd,#66a6ff)}
+.team{display:flex;align-items:center;gap:.5rem}
+.team img{width:28px;height:28px;border-radius:50%;box-shadow:0 0 0 2px #fff;object-fit:cover}
+.team .name{font-weight:600}
+.multipliers .badge{border:1px solid #dee2e6}
+.event-bg{background:linear-gradient(180deg,#ffffff,#f7faff)}
+.leader-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#0d6efd,#66a6ff);display:inline-block;margin-right:8px}
